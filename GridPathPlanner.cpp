@@ -69,10 +69,11 @@ xyLoc GridPathPlanner::GetNextMove(PartiallyKnownGrid* grid)
 		AStar();
 
 		xyLoc next = path.back().loc;
-		path.pop_back();
+		//path.erase (path.begin());
 
-		std::cout << "MOVE TO: " << next.y << ", " << next.x << std::endl;
+		std::cout << "MOVE TO: " << next.y << ", " << next.x << " | PATH SIZE: " << path.size() << std::endl;
 
+		path.clear();
 		return next;
 	}
 	std::cout << "STILL ALIVE" << std::endl;
@@ -104,8 +105,15 @@ void GridPathPlanner::AStar()
 			std::set<Node>::iterator it = openList.begin();
 			openList.erase(it);
 			Node cur = allNodes[(*it).loc.y][(*it).loc.x];
+			cur.visited = true;
 			xyLoc cLoc = cur.loc;
-			allNodes[cLoc.y][cLoc.x].visited = true;
+			allNodes[cLoc.y][cLoc.x] = cur;
+
+			// if( cur.loc != start )
+			// {
+			// 	//path.push_back(cur);
+			// 	std::cout << "PATH SIZE: " << path.size() << std::endl;
+			// }
 
 			if( cur.successor != NULL )
 			{
@@ -137,21 +145,19 @@ void GridPathPlanner::AStar()
 					std::cout << "NEIGHBOR Node: " << adj.y << ", " << adj.x << " | Successor is " << n.successor->loc.y << ", " << n.successor->loc.x << std::endl;
 					std::cout << "g=" << n.g << " | h=" << n.h << " | f=" << n.f << " | Visited: " << n.visited << std::endl;
 					openList.insert(n);
-					std::cout << "OPEN LIST SIZE: " << openList.size() << std::endl;
 				}
 			}
 		}
 	}
 
 	// Build the path from start
-	path.clear();
-	xyLoc pos = start;
+	xyLoc pos = goal;
 	Node n = allNodes[pos.y][pos.x];
 	path.push_back(n);
 	std::cout << "HERE" << std::endl;
-	std::cout << "START Node: " << pos.y << ", " << pos.x << " | g=" << n.g << " | h=" << n.h << " | f=" << n.f << " |  Successor: " << n.successor->loc.y << ", " << n.successor->loc.x << std::endl;
+	std::cout << "START Node: " << pos.y << ", " << pos.x << " | g=" << n.g << std::endl;//" | h=" << n.h << " | f=" << n.f << " |  Successor: " << n.successor->loc.y << ", " << n.successor->loc.x << std::endl;
 
-	while ( n.successor == NULL )
+	while ( n.successor->loc != start )
 	{
 		n = *n.successor;
 		pos = n.loc;
