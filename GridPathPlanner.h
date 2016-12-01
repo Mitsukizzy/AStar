@@ -14,9 +14,6 @@ public:
 
 	xyLoc GetNextMove(PartiallyKnownGrid* grid);
 	float GetHeuristic( xyLoc cur, xyLoc goal );
-	xyLoc AStar();
-	xyLoc ForwardA();
-	xyLoc AdaptiveA();
 	int GetNumExpansions();
 
 	typedef struct Node
@@ -29,6 +26,7 @@ public:
 
 		bool operator == (const Node* & n) const
 		{
+			std::cout << loc.x << ", " << loc.y << std::endl;
 			return loc == n->loc;
 		}
 	} Node;
@@ -48,11 +46,11 @@ public:
 	};
 
 private:
-	PartiallyKnownGrid* mGrid;
-	int mRows, mCols;
 	int numExpansions;
+	int mRows, mCols;
 	bool useAdaptive;
 	std::vector<Node*> open, closed;	
+	int **hvalues;
 };
 
 #endif

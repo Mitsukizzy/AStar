@@ -41,7 +41,7 @@ void Simulate(PartiallyKnownGrid* grid)
 		//*/
         #endif
     }
-	cout<<"Target found in "<<steps<<" steps !!!"<<endl;
+	cout<<"Target found in "<<steps<<" steps !!!" << planner.GetNumExpansions() <<endl;
 }
 
 int main() {
