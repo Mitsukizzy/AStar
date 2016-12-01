@@ -8,54 +8,24 @@ GridPathPlanner::GridPathPlanner(PartiallyKnownGrid* grid, bool use_adaptive_a_s
 	mGrid = grid;
 	mRows = grid->GetHeight();
 	mCols = grid->GetWidth();
-	goal = grid->GetGoalLocation();
-	start = grid->GetCurrentLocation();
 
-	// Dynamic sized array
-	allNodes = new Node*[mRows];
-	for(int i = 0; i < mRows; i++)
-	{
-    	allNodes[i] = new Node[mCols];
-	}
-
-	// Init starting values for all nodes
-	for (int y = 0; y < mRows; y++) 
-	{
-		for (int x = 0; x < mCols; x++) 
-		{
-			Node n;
-			n.loc = xyLoc(x,y);
-			n.visited = false;
-
-			// Heuristic calculation - Manhattan Distance
-			n.h = GetHeuristic( n.loc, goal );
-			//std::cout << "INIT Node: " << n.loc.y << ", " << n.loc.x << " | h=" << n.h << std::endl;
-
-			if( n.loc == start )
-			{
-				n.g = 0;
-				n.f = n.h;
-				std::cout << "Start Node: " << n.loc.y << ", " << n.loc.x << std::endl;
-				openList.insert(n);
-			}
-			else
-			{
-				n.g = std::numeric_limits<float>::max();
-				n.f = std::numeric_limits<float>::max();
-			}
-			allNodes[y][x] = n;
-		}
-	}
+	// Allocate space for dynamically sized array
+	// allNodes = new Node*[mRows];
+	// for(int i = 0; i < mRows; i++)
+	// {
+    // 	allNodes[i] = new Node[mCols];
+	// }
+	// InitAllNodes();
 }
 
 GridPathPlanner::~GridPathPlanner()
 {
-	// Deallocated array
-	for(int i = 0; i < mCols; i++)
-	{
-		delete [] allNodes[i];
-	}
-	delete [] allNodes;
+	// // Deallocated array
+	// for(int i = 0; i < mCols; i++)
+	// {
+	// 	delete [] allNodes[i];
+	// }
+	// delete [] allNodes;
 }
 
 // Returns the cell that the agent should move to next when following 
@@ -66,17 +36,10 @@ xyLoc GridPathPlanner::GetNextMove(PartiallyKnownGrid* grid)
 	{
 		mGrid = grid;
 		numExpansions++;
-		AStar();
-
-		xyLoc next = path.back().loc;
-		//path.erase (path.begin());
-
-		std::cout << "MOVE TO: " << next.y << ", " << next.x << " | PATH SIZE: " << path.size() << std::endl;
-
-		path.clear();
+		
+		xyLoc next = AStar();
 		return next;
 	}
-	std::cout << "STILL ALIVE" << std::endl;
 	return kInvalidXYLoc;
 }
 
@@ -86,84 +49,103 @@ float GridPathPlanner::GetHeuristic( xyLoc cur, xyLoc goal )
 }
 
 // NOTE: The node are indexed by col, row
-void GridPathPlanner::AStar()
+xyLoc GridPathPlanner::AStar()
 {
-	//std::cout << "A STAR" << std::endl;
-	start = mGrid->GetCurrentLocation();
-	Node startNode = allNodes[start.y][start.x];
-	openList.insert(startNode);
+	// Reset the all the nodes using current location as start
+	open.clear();
+	closed.clear();
+	Node *startNode = new Node();
+	startNode->loc = mGrid->GetCurrentLocation();
+	startNode->g = 0;
+	startNode->h = GetHeuristic( startNode->loc, mGrid->GetGoalLocation() );
+	startNode->f = startNode->h + startNode->g;
+	open.push_back(startNode);
 
 	if( useAdaptive )
 	{
-		// Adaptive A*
+		return AdaptiveA();
 	}
 	else
 	{
-		// Forward A*
-		while( !openList.empty() )
+		return ForwardA();
+	}
+}
+
+xyLoc GridPathPlanner::ForwardA()
+{
+	int count = 5;
+	while( !open.empty() )
+	{
+		Node *cur = open.front();
+
+		if( cur->loc == mGrid->GetGoalLocation() )
 		{
-			std::set<Node>::iterator it = openList.begin();
-			openList.erase(it);
-			Node cur = allNodes[(*it).loc.y][(*it).loc.x];
-			cur.visited = true;
-			xyLoc cLoc = cur.loc;
-			allNodes[cLoc.y][cLoc.x] = cur;
-
-			// if( cur.loc != start )
-			// {
-			// 	//path.push_back(cur);
-			// 	std::cout << "PATH SIZE: " << path.size() << std::endl;
-			// }
-
-			if( cur.successor != NULL )
+			// Retrace back to find next move
+			Node *next = cur->parent;
+			while( next->parent )
 			{
-				std::cout << "CURRENT Node: " << cLoc.y << ", " << cLoc.x << " | Successor is " << cur.successor->loc.y << ", " << cur.successor->loc.x <<
-				" | g=" << cur.g << " | h=" << cur.h << " | f=" << cur.f << " | Visited: " << cur.visited << std::endl;
+				cur = next;
+				next = next->parent;
 			}
+			return cur->loc;
+		}
+		closed.push_back(cur);
+		open.erase(open.begin());
 
-			// Determine neighbors
-			std::vector<xyLoc> neighbors;
-			neighbors.push_back(xyLoc(cLoc.x+1, cLoc.y));
-			neighbors.push_back(xyLoc(cLoc.x-1, cLoc.y));
-			neighbors.push_back(xyLoc(cLoc.x, cLoc.y+1));
-			neighbors.push_back(xyLoc(cLoc.x, cLoc.y-1));
+		std::vector<xyLoc> neighbors;
+		neighbors.push_back(xyLoc(cur->loc.x+1, cur->loc.y));
+		neighbors.push_back(xyLoc(cur->loc.x-1, cur->loc.y));
+		neighbors.push_back(xyLoc(cur->loc.x, cur->loc.y+1));
+		neighbors.push_back(xyLoc(cur->loc.x, cur->loc.y-1));
 
-			for ( int i = 0; i < neighbors.size(); i++ ) 
+		for ( int i = 0; i < neighbors.size(); i++ ) 
+		{
+			Node *n = new Node();
+			n->loc = neighbors[i];		
+
+			if ( mGrid->IsValidLocation(n->loc) && !mGrid->IsBlocked(n->loc) ) 
 			{
-				xyLoc adj = neighbors[i];
-				Node n = allNodes[adj.y][adj.x];
-
-				// Check if valid: not blocked or already visited
-				if ( mGrid->IsValidLocation(adj) && !mGrid->IsBlocked(adj) && !n.visited ) 
+				// Check if neighbor is in closed list and open list
+				bool isInClosed = false;
+				bool isInOpen = false;
+				for( std::vector<Node*>::iterator it = closed.begin(); it != closed.end(); ++it)
 				{
-					Node n = allNodes[adj.y][adj.x];
-					n.g = cur.g + 1.0f;
-					n.f = n.g + n.h;
-					n.successor = &allNodes[cLoc.y][cLoc.x];
-					allNodes[adj.y][adj.x] = n;
+					if( n->loc == (*it)->loc )
+						isInClosed = true;
+				}
+				for( std::vector<Node*>::iterator it = open.begin(); it != open.end(); ++it)
+				{
+					if( n->loc == (*it)->loc )
+						isInOpen = true;
+				}
 
-					std::cout << "NEIGHBOR Node: " << adj.y << ", " << adj.x << " | Successor is " << n.successor->loc.y << ", " << n.successor->loc.x << std::endl;
-					std::cout << "g=" << n.g << " | h=" << n.h << " | f=" << n.f << " | Visited: " << n.visited << std::endl;
-					openList.insert(n);
+				// Check if neighbor is in open list
+				if( !isInClosed && !isInOpen )
+				{
+					n->g = cur->g + 1;
+					n->h = GetHeuristic( n->loc, mGrid->GetGoalLocation() );
+					n->f = n->g + n->f;
+					n->parent = cur;
+					open.push_back(n);
+					std::sort( open.begin(), open.end(), CompareNodes() );
+				}
+				
+				if( cur->g + 1 < n->g )
+				{				
+					n->g = cur->g + 1;
+					n->f = n->g + n->h;
+					n->parent = cur;
 				}
 			}
 		}
 	}
+}
 
-	// Build the path from start
-	xyLoc pos = goal;
-	Node n = allNodes[pos.y][pos.x];
-	path.push_back(n);
-	std::cout << "HERE" << std::endl;
-	std::cout << "START Node: " << pos.y << ", " << pos.x << " | g=" << n.g << std::endl;//" | h=" << n.h << " | f=" << n.f << " |  Successor: " << n.successor->loc.y << ", " << n.successor->loc.x << std::endl;
+xyLoc GridPathPlanner::AdaptiveA()
+{
 
-	while ( n.successor->loc != start )
-	{
-		n = *n.successor;
-		pos = n.loc;
-		path.push_back(n);
-		std::cout << "PATH: " << n.loc.y << ", " << n.loc.x << std::endl;
-	}
+
+
 }
 
 // Returns number of states expanded by the most recent search

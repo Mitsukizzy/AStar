@@ -3,10 +3,9 @@
 
 #include "PartiallyKnownGrid.h"
 #include <vector>
-#include <set>
 #include <iostream>
 #include <cmath>
-#include <limits>
+#include <algorithm>
 
 class GridPathPlanner{
 public:
@@ -15,43 +14,45 @@ public:
 
 	xyLoc GetNextMove(PartiallyKnownGrid* grid);
 	float GetHeuristic( xyLoc cur, xyLoc goal );
-	void AStar();
+	xyLoc AStar();
+	xyLoc ForwardA();
+	xyLoc AdaptiveA();
 	int GetNumExpansions();
-
-private:
-	PartiallyKnownGrid* mGrid;
-	int mRows, mCols;
-	int numExpansions;
-	xyLoc goal, start;
-	bool useAdaptive;
 
 	typedef struct Node
 	{
-		Node *successor;
-		float g;	// shortest path from this node to start node
-		float h; 	// heuristic: goal (manhattan) dist of this node  
-		float f;	// f = g + h
-		bool visited;
+		Node *parent;
+		int g;	// shortest path from this node to start node
+		int h; 	// heuristic: goal (manhattan) dist of this node  
+		int f;	// f = g + h
 		xyLoc loc;
+
+		bool operator == (const Node* & n) const
+		{
+			return loc == n->loc;
+		}
 	} Node;
 
 	// Comparison function using tie-breaking rules
 	struct CompareNodes 
 	{
-		bool operator() (Node const & n1, Node const & n2) 
+		bool operator() (Node* const & n1, Node* const & n2) 
 		{
-			if( n1.f != n2.f )
-				return n1.f < n2.f;
-			else if( n1.g != n2.g )
-				return n1.g > n2.g;
+			if( n1->f != n2->f )
+				return n1->f < n2->f;
+			else if( n1->g != n2->g )
+				return n1->g > n2->g;
 			else
-				return n1.loc < n2.loc;
+				return n1->loc < n2->loc;
 		}
 	};
 
-	Node **allNodes;
-	std::set<Node, CompareNodes> openList;
-	std::vector<Node> path;
+private:
+	PartiallyKnownGrid* mGrid;
+	int mRows, mCols;
+	int numExpansions;
+	bool useAdaptive;
+	std::vector<Node*> open, closed;	
 };
 
 #endif
